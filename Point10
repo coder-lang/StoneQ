@@ -1,0 +1,72 @@
+def _resolve_cc_key(cc_dict: dict, *candidates: str):
+    """
+    Finds a value in cc_dict using flexible key matching.
+    Tries: exact → case-insensitive → normalized (no spaces/underscores/hyphens).
+    """
+    if not isinstance(cc_dict, dict):
+        return None
+
+    def normalize(k):
+        return re.sub(r"[\s_\-]+", "", k).lower()
+
+    normalized_map = {normalize(k): v for k, v in cc_dict.items()}
+
+    for candidate in candidates:
+        # Exact match
+        if candidate in cc_dict:
+            return cc_dict[candidate]
+        # Case-insensitive
+        for k, v in cc_dict.items():
+            if k.lower() == candidate.lower():
+                return v
+        # Normalized match (strips spaces, underscores, hyphens)
+        if normalize(candidate) in normalized_map:
+            return normalized_map[normalize(candidate)]
+    return None
+
+
+
+
+cc_data = all_jsons.get("cc")
+if cc_data and isinstance(cc_data, dict):
+    grand_total_area_raw = _resolve_cc_key(
+        cc_data,
+        "Grand_Total_Area", "grand_total_area", "GrandTotalArea",
+        "grand total area", "Grand Total Area", "total_area", "Total_Area"
+    ) or ""
+
+    final_remarks = _resolve_cc_key(
+        cc_data,
+        "Final_Remarks", "final_remarks", "FinalRemarks",
+        "final remarks", "Final Remarks", "remarks", "Remarks"
+    ) or ""
+
+    area_numeric = None
+    if grand_total_area_raw:
+        area_match = re.search(r"(\d+(?:\.\d+)?)", str(grand_total_area_raw))
+        if area_match:
+            area_numeric = float(area_match.group(1))
+
+    if area_numeric is not None:
+        area_comparison = (
+            f"The Grand Total Area is {grand_total_area_raw}, which is "
+            f"{'less than' if area_numeric < 24 else 'not less than'} 24 Ha."
+        )
+    else:
+        area_comparison = (
+            f"The Grand Total Area is {grand_total_area_raw}."
+            if grand_total_area_raw else
+            "The Grand Total Area is not specified."
+        )
+
+    remarks_part = f" Final Remarks: {final_remarks}" if final_remarks else ""
+    line10_cluster = (
+        f"The DMO Cluster Certificate has been submitted. "
+        f"{area_comparison}{remarks_part}"
+    )
+else:
+    line10_cluster = "The DMO Cluster Certificate was not provided in the submitted documents."
+
+
+
+10. DMO Certificate on cluster formation details: Based on the following statement, write 2–3 sentences covering: (a) whether the cluster certificate was submitted, (b) the Grand Total Area and whether it is less than 24 Ha, and (c) the final remarks/conclusion on cluster formation and proposal category. Statement: {line10_cluster}
