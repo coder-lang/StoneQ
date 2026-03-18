@@ -1,0 +1,24 @@
+# Point 18 — Proponent undertaking
+un_proponent_data = all_jsons.get("un_proponent")
+line18_proponent = (
+    "The undertaking/affidavit submitted by the Project Proponent regarding implementation of conditions of EC, EMP & CER Plan has been provided."
+    if un_proponent_data else
+    "The undertaking/affidavit by the Project Proponent regarding implementation of conditions of EC, EMP & CER Plan was not provided in the submitted documents."
+)
+
+# Point 19 — Consultant undertaking
+un_consultant_data = all_jsons.get("un_consultant")
+line19_consultant = (
+    "The undertaking/affidavit submitted by the EIA Coordinator and Project Consultant has been provided."
+    if un_consultant_data else
+    "The undertaking/affidavit by the EIA Coordinator and Project Consultant was not provided in the submitted documents."
+)
+
+
+# BEFORE
+18. Implementation of conditions of EC, EMP & CER Plan
+19. EIA Coordinator and Project Consultant details
+
+# AFTER
+18. Implementation of conditions of EC, EMP & CER Plan: {line18_proponent}
+19. EIA Coordinator and Project Consultant details: {line19_consultant}
