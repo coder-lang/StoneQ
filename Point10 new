@@ -1,0 +1,48 @@
+cc_data = all_jsons.get("cc")
+if cc_data and isinstance(cc_data, dict):
+    grand_total_area_raw = _resolve_cc_key(
+        cc_data,
+        "Grand_Total_Area", "grand_total_area", "GrandTotalArea",
+        "grand total area", "Grand Total Area", "total_area", "Total_Area"
+    ) or ""
+
+    final_remarks = _resolve_cc_key(
+        cc_data,
+        "Final_Remarks", "final_remarks", "FinalRemarks",
+        "final remarks", "Final Remarks", "remarks", "Remarks"
+    ) or ""
+
+    cc_date = _resolve_cc_key(
+        cc_data,
+        "Letter_No_with_Date", "letter_no_with_date", "LetterNoWithDate",
+        "Letter No with Date", "letter no with date", "Date", "date",
+        "Letter_Date", "letter_date"
+    ) or ""
+
+    area_numeric = None
+    if grand_total_area_raw:
+        area_match = re.search(r"(\d+(?:\.\d+)?)", str(grand_total_area_raw))
+        if area_match:
+            area_numeric = float(area_match.group(1))
+
+    if area_numeric is not None:
+        area_comparison = (
+            f"The Grand Total Area is {grand_total_area_raw}, which is "
+            f"{'less than' if area_numeric < 24 else 'not less than'} 24 Ha."
+        )
+    else:
+        area_comparison = (
+            f"The Grand Total Area is {grand_total_area_raw}."
+            if grand_total_area_raw else
+            "The Grand Total Area is not specified."
+        )
+
+    date_part = f" dated {cc_date}" if cc_date else ""
+    remarks_part = f" Final Remarks: {final_remarks}" if final_remarks else ""
+
+    line10_cluster = (
+        f"The DMO Cluster Certificate{date_part} has been submitted. "
+        f"{area_comparison}{remarks_part}"
+    )
+else:
+    line10_cluster = "The DMO Cluster Certificate was not provided in the submitted documents."
