@@ -1,0 +1,48 @@
+# Point 9 — DMO Site Survey Report remarks
+ss_data = all_jsons.get("ss", {})
+if isinstance(ss_data, dict) and ss_data:
+    dmo_date = (
+        ss_data.get("Letter No. with Date")
+        or ss_data.get("Letter_No_with_Date")
+        or ss_data.get("letter_no_with_date")
+        or ss_data.get("Date")
+        or "............"
+    )
+    
+    # Extract remarks — handle list or string
+    raw_remarks = (
+        ss_data.get("Remarks")
+        or ss_data.get("remarks")
+        or ss_data.get("DMO Remarks")
+        or ss_data.get("Specific Remarks")
+        or []
+    )
+    
+    if isinstance(raw_remarks, list):
+        remarks_formatted = " ".join(
+            f"{i+1}). {r.strip()}" for i, r in enumerate(raw_remarks) if r.strip()
+        )
+    elif isinstance(raw_remarks, str) and raw_remarks.strip():
+        # If already a string, split on common delimiters and number them
+        parts = re.split(r'\n|\d+[\)\.]\s*', raw_remarks.strip())
+        parts = [p.strip() for p in parts if p.strip()]
+        remarks_formatted = " ".join(
+            f"{i+1}). {r}" for i, r in enumerate(parts)
+        )
+    else:
+        remarks_formatted = "............"
+
+    line9_dmo = (
+        f"As per the submitted DMO Site Survey Report dated {dmo_date}, "
+        f"following are the DMO's specific comments/remarks: {remarks_formatted}"
+    )
+else:
+    line9_dmo = "The DMO Site Survey Report was not provided in the submitted documents."
+
+
+# BEFORE
+9. DMO Site survey report remarks (Provide all remarks points made by the DMO exactly as written 
+   in English and do not summarize it. Write remarks as a paragraph of sentences.)
+
+# AFTER
+9. DMO Site survey report remarks: {line9_dmo}
