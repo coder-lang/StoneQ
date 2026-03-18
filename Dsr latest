@@ -1,0 +1,31 @@
+def extract_dsr(dsr_file):
+    """
+    Extract DSR Document (DSR) data.
+    DSR documents can be large — uses size-aware chunking like emp/mpa.
+    """
+    logger.info("=== STARTING DSR EXTRACTION ===")
+
+    dsr_result, dsr_markdown = extract_markdown_from_file(dsr_file)
+    logger.info(f"DSR markdown: {len(dsr_markdown):,} chars (~{estimate_tokens(dsr_markdown):,} tokens)")
+
+    # Get CAF proponent name — same as before
+    caf_proponent = "Not Available"
+    if "caf" in all_jsons and isinstance(all_jsons["caf"], dict):
+        caf_proponent = (
+            all_jsons["caf"].get("Project Proponent Details") or
+            all_jsons["caf"].get("Project Proponent Name") or
+            "Not Available"
+        )
+
+    # Inject CAF name into prompt — same as before
+    dsr_prompt_template = load_prompt("dsr_prompt.txt")
+    dsr_prompt = dsr_prompt_template.replace("{CAF_PROPONENT_NAME}", caf_proponent)
+
+    # Use size-aware extraction instead of direct extract_with_llm
+    result = extract_with_size_check(dsr_prompt, dsr_markdown, "dsr")
+
+    logger.info("=== DSR EXTRACTION COMPLETE ===")
+    return {"dsr": result}
+
+
+LARGE_DOCUMENT_TYPES = ['emp', 'mpa', 'dmoss', 'qlp', 'cc', 'dsr']
