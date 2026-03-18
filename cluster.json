@@ -1,0 +1,36 @@
+    "cc": {
+      "Name_of_Project_Proponent": [
+        "Mr. Abhipray Tikaramji Manapure",
+        "Mr. Mohammad Rafi Mohammad Shafi Sheikh"
+      ],
+      "Address_and_Date": [
+        {
+          "Name": "Mr. Abhipray Tikaramji Manapure",
+          "District": "Wardha",
+          "Village": "Pimpalgaon",
+          "Taluka": "Samudrapur",
+          "Date": "24/12/2025"
+        },
+        {
+          "Name": "Mr. Mohammad Rafi Mohammad Shafi Sheikh",
+          "District": "Wardha",
+          "Village": "Pimpalgaon",
+          "Taluka": "Samudrapur",
+          "Date": "24/12/2025"
+        }
+      ],
+      "Survey_Number": [
+        "82",
+        "83"
+      ],
+      "Cluster_Certificate_Context": "As per the MoEFCC notification S.O. 2269E dated 1st July 2016, a cluster shall be formed when the distance between the peripheries of one lease is less than 500 meters from the periphery of other lease in a homogeneous minerals area which shall be applicable to the mine leases or quarry licenses proposed to grant prior environmental clearance excluding not operative leases for three years or which have got prior environmental clearance as on 15th January 2016.",
+      "Grand_Total_Area_Table_with_Remarks": {
+        "Proposed_area": "4.05 Ha",
+        "Existing_Quarry_Area": "0.00 Ha",
+        "Abandoned_pit_Area": "0.00 Ha",
+        "Total_Area": "4.05 Ha",
+        "Remarks": "The details regarding the cluster area is being provided based on data available."
+      },
+      "Grand_Total_Area": "4.05 Ha",
+      "Letter_No_with_Date": "24/12/2025",
+      "Final_Remarks": "This is to certify that as per the information above, proposals does not form a cluster. Hence this proposal is submitted as category 1(a) B2 as per EIA notification 2006 and amendments thereof."
