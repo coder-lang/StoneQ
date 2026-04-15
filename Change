@@ -1,0 +1,73 @@
+    gsda_data = all_jsons.get("nocgsda")
+    line7_gsda = (
+        "The GSDA NOC has been submitted."
+        if gsda_data else
+        "The GSDA NOC was not provided in the submitted documents."
+    )
+
+    # ✅ NEW: Point 7 — Groundwater level (GSR) vs Mining depth (MPA)
+    _mpa = all_jsons.get("mpa", {})
+    _gsr = all_jsons.get("gsr", {})
+
+    _mining_depth = None
+    if isinstance(_mpa, dict):
+        _mining_depth = (
+            _mpa.get("Depth")
+            or _mpa.get("Allowed Mining Depth")
+            or _mpa.get("Allowed_Mining_Depth")
+            or _mpa.get("mining_depth")
+        )
+
+    _groundwater_level = None
+    if isinstance(_gsr, dict):
+        _groundwater_level = (
+            _gsr.get("Groundwater Level")
+            or _gsr.get("groundwater_level")
+            or _gsr.get("Ground Water Level")
+            or _gsr.get("Water Table Depth")
+            or _gsr.get("water_table_depth")
+            or _gsr.get("Depth to Water Table")
+        )
+
+    try:
+        if _mining_depth and _groundwater_level:
+            _md_val = float(re.search(r"(\d+(?:\.\d+)?)", str(_mining_depth)).group(1))
+            _gw_val = float(re.search(r"(\d+(?:\.\d+)?)", str(_groundwater_level)).group(1))
+            _intersects = "will" if _md_val >= _gw_val else "will not"
+            line7_groundwater = (
+                f"As per the documents submitted by the Project Proponent and the consultant, "
+                f"the groundwater level in the project area is reported to be at {_groundwater_level} m, "
+                f"and the proposed mining/excavation depth {_intersects} intersect the groundwater "
+                f"table during the mining operations."
+            )
+        elif _mining_depth or _groundwater_level:
+            line7_groundwater = (
+                f"As per the documents submitted by the Project Proponent and the consultant, "
+                f"the groundwater level in the project area is reported at "
+                f"{_groundwater_level or '____'} m, and the proposed mining/excavation depth is "
+                f"{_mining_depth or '____'} m."
+            )
+        else:
+            line7_groundwater = (
+                "The groundwater level and proposed mining depth details were not available "
+                "in the submitted documents."
+            )
+    except Exception as _e:
+        logger.warning(f"Groundwater vs depth calculation failed: {_e}")
+        line7_groundwater = (
+            f"As per the documents submitted, the groundwater level is reported at "
+            f"{_groundwater_level or '____'} m and the proposed mining depth is "
+            f"{_mining_depth or '____'} m."
+        )
+
+
+   7. GSDA NOC details: Using the GSDA NOC content, write a one-sentence English summary covering groundwater condition, morphozone status, and any restrictions or recommendations; base the summary on the following statement: {line7_gsda} Additionally, include the following groundwater vs. mining depth statement exactly as written: {line7_groundwater}
+
+
+
+
+
+
+
+
+
