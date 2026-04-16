@@ -36,7 +36,8 @@ from functions.entity_extraction import (
     extract_caf, extract_form1, extract_nabet, extract_cluster_certificate,
     extract_site_survey, extract_emp, extract_mpa, extract_nocgp,
     extract_nocforest, extract_nocgsda, extract_kprat, extract_gsr,
-    extract_qlp, extract_od, kml_to_json, safe_json_parse, extract_dsr, extract_regrassing, extract_undertaking, extract_western_ghat, extract_8A, extract_pfr, extract_form1A,extract_form1B
+    extract_qlp, extract_od, kml_to_json, safe_json_parse, extract_dsr, extract_regrassing, extract_undertaking, extract_western_ghat, extract_8A, extract_pfr, extract_form1A,extract_form1B,
+    extract_unproponent, extract_unconsultant
 )
 from functions.output_generation12 import (
     gen_delib_sheet,
@@ -97,7 +98,7 @@ blob_service_client = BlobServiceClient(
 # Define the list of REQUIRED document types for validation
 REQUIRED_DOC_NAMES = [
     "CAF", "Form 1", "NABET", "Cluster Certificate", "DMO Site Survey",
-    "EMP", "MPA", "NOC-GP", "NOC-GSDA", "Kprat", "Quarry Layout Plan", "Ownership Document", "DSR", "Regrassing", "Undertaking", "Affidavit Proposal", "8A", "form1A", "form1B", "pfr"
+    "EMP", "MPA", "NOC-GP", "NOC-GSDA", "Kprat", "Quarry Layout Plan", "Ownership Document", "DSR", "Regrassing", "Undertaking", "Affidavit Proposal", "8A", "form1A", "form1B", "pfr", "un_consultant", "un_proponent"
 ]
 
 # Global store for extraction results and blob URLs
@@ -199,7 +200,9 @@ async def validate_documents(
                 "8A": file_mapping.get('8A'),
                 "form1A":file_mapping.get("form1A"),
                 "form1B":file_mapping.get("form1B"),
-                "pfr":file_mapping.get("pfr")
+                "pfr":file_mapping.get("pfr"),
+                "un_consultant" : file_mapping.get("un_consultant"),
+                "un_proponent" : file_mapping.get("un_proponent")
             }
             
             missing_docs = [
@@ -438,7 +441,9 @@ def _process_zip_background(zip_path, original_proposal_id: str, proposal_dir, l
                 "8A": found_files.get('8A'),
                 "form1A":file_mapping.get("form1A"),
                 "form1B":file_mapping.get("form1B"),
-                "pfr":file_mapping.get("pfr")
+                "pfr":file_mapping.get("pfr"),
+                "un_consultant" : file_mapping.get("un_consultant"),
+                "un_proponent" : file_mapping.get("un_proponent")
             }.items() if name in REQUIRED_DOC_NAMES and file_path is None
         ]
         missing_files_store[original_proposal_id] = missing_docs
@@ -695,14 +700,16 @@ async def get_extracted_data(proposal_id: str):
     # -----------------------------------------
     # DERIVED AFFIDAVIT BASED FLAGS
     # -----------------------------------------
-    affidavit_present = "Affidavit Proposal" not in missing_files
+    unconsulatnt_present = "un_consultant" not in missing_files
+    unpropnent_present = "un_proponent" not in missing_files
+
 
     affidavit_flags = {
         "Project consultant & EIA Coordinator (Undertaking) – Attached": 
-            "Yes" if affidavit_present else "No",
+            "Yes" if unconsulatnt_present else "No",
 
         "Affidavit on EC, EMP, CER Implementation – Attached?": 
-            "Yes" if affidavit_present else "No"
+            "Yes" if unpropnent_present else "No"
     }
 
     
