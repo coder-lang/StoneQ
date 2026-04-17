@@ -707,6 +707,98 @@ def gen_delib_sheet(all_jsons: Dict[str, Any], verification_results: Dict[str, A
 
     all_jsons["ESZ_Check"] = esz_message
     logger.info(f"ESZ Check Result: {esz_message}")
+    ##############################################################################################
+    PESA_VILLAGES_RAW: list = []   # keeps original names for display
+    PESA_VILLAGES_NORM: list = []  # normalized versions for matching
+
+    try:
+        pesa_excel_path = "/home/eytech/ai_mh/API_Stonequarry/data/PESA_List.xlsx"
+        df_pesa = pd.read_excel(pesa_excel_path, sheet_name=0)
+
+        # ── Detect village column flexibly ──────────────────────────────
+        # Tries common column names; falls back to first column if none match.
+        village_col = None
+        for col in df_pesa.columns:
+            if col.strip().lower() in ("ग्रामपंचायत अंतर्गत पेसा गावाचे नाव","village", "village name", "gram", "gaon"):
+                village_col = col
+                break
+        if village_col is None:
+            village_col = df_pesa.columns[0]   # fallback: first column
+            logger.warning(f"PESA: 'Village' column not found; using first column '{village_col}'")
+
+        PESA_VILLAGES_RAW = [
+            str(v).strip()
+            for v in df_pesa[village_col].dropna()
+            if str(v).strip()
+        ]
+        # Pre-normalize every entry once for fast comparison later
+        PESA_VILLAGES_NORM = [
+            normalize_text_for_comparison(v) for v in PESA_VILLAGES_RAW
+        ]
+        logger.info(f"PESA: Loaded {len(PESA_VILLAGES_RAW)} villages from Excel")
+
+    except Exception as e:
+        logger.error(f"Failed to load PESA Excel: {e}")
+
+    # ── Match proposed_village against PESA list ─────────────────────────
+    PESA_FUZZY_THRESHOLD = 0.98   # high threshold — village names are short
+
+    pesa_message = "PESA status: Village not provided or PESA data unavailable."
+    pesa_matched_village = None   # the original name from the Excel (for display)
+
+    if proposed_village and PESA_VILLAGES_RAW:
+        proposed_norm = normalize_text_for_comparison(proposed_village)
+
+        # Pass 1 — exact match on normalized forms (handles case + script noise)
+        if proposed_norm in PESA_VILLAGES_NORM:
+            idx = PESA_VILLAGES_NORM.index(proposed_norm)
+            pesa_matched_village = PESA_VILLAGES_RAW[idx]
+
+        # Pass 2 — fuzzy match using jaro_winkler (handles transliteration gaps)
+        if not pesa_matched_village and proposed_norm:
+            best_score = 0.0
+            best_idx = -1
+            for i, norm_v in enumerate(PESA_VILLAGES_NORM):
+                if not norm_v:
+                    continue
+                score = jaro_winkler(proposed_norm, norm_v)
+                if score > best_score:
+                    best_score = score
+                    best_idx = i
+
+            if best_score >= PESA_FUZZY_THRESHOLD:
+                pesa_matched_village = PESA_VILLAGES_RAW[best_idx]
+                logger.info(
+                    f"PESA: Fuzzy matched '{proposed_village}' → "
+                    f"'{pesa_matched_village}' (score={best_score:.3f})"
+                )
+            else:
+                logger.info(
+                    f"PESA: No match for '{proposed_village}' "
+                    f"(best score={best_score:.3f} < threshold={PESA_FUZZY_THRESHOLD})"
+                )
+
+        # ── Build human-readable message ──────────────────────────────────
+        if pesa_matched_village:
+            pesa_message = (
+                f"The proposed mine village '{proposed_village}' is listed in the "
+                f"PESA village list "
+                f"(matched as '{pesa_matched_village}'). "
+                f"Special PESA compliance and tribal consent may be required."
+            )
+        else:
+            pesa_message = (
+                f"The proposed mine village '{proposed_village}' is NOT listed in "
+                f"the PESA village list."
+            )
+    elif proposed_village and not PESA_VILLAGES_RAW:
+        pesa_message = (
+            f"PESA status: PESA village data could not be loaded. "
+            f"Manual verification required for village '{proposed_village}'."
+        )
+
+    all_jsons["PESA_Check"] = pesa_message
+    logger.info(f"PESA Check Result: {pesa_message}")
 
     # --- Prepare Missing Files Summary ---
     missing_files_summary_text = ""
@@ -863,6 +955,60 @@ def gen_delib_sheet(all_jsons: Dict[str, Any], verification_results: Dict[str, A
         if gsda_data else
         "The GSDA NOC was not provided in the submitted documents."
     )
+    # ✅ NEW: Point 7 — Groundwater level (GSR) vs Mining depth (MPA)
+    _mpa = all_jsons.get("mpa", {})
+    _gsr = all_jsons.get("gsr", {})
+
+    _mining_depth = None
+    if isinstance(_mpa, dict):
+        _mining_depth = (
+            _mpa.get("Depth")
+            or _mpa.get("Allowed Mining Depth")
+            or _mpa.get("Allowed_Mining_Depth")
+            or _mpa.get("mining_depth")
+        )
+
+    _groundwater_level = None
+    if isinstance(_gsr, dict):
+        _groundwater_level = (
+            _gsr.get("Groundwater Level")
+            or _gsr.get("groundwater_level")
+            or _gsr.get("Ground Water Level")
+            or _gsr.get("Water Table Depth")
+            or _gsr.get("water_table_depth")
+            or _gsr.get("Depth to Water Table")
+        )
+
+    try:
+        if _mining_depth and _groundwater_level:
+            _md_val = float(re.search(r"(\d+(?:\.\d+)?)", str(_mining_depth)).group(1))
+            _gw_val = float(re.search(r"(\d+(?:\.\d+)?)", str(_groundwater_level)).group(1))
+            _intersects = "will" if _md_val >= _gw_val else "will not"
+            line7_groundwater = (
+                f"As per the documents submitted by the Project Proponent and the consultant, "
+                f"the groundwater level in the project area is reported to be at {_groundwater_level} m, "
+                f"and the proposed mining/excavation depth {_intersects} intersect the groundwater "
+                f"table during the mining operations."
+            )
+        elif _mining_depth or _groundwater_level:
+            line7_groundwater = (
+                f"As per the documents submitted by the Project Proponent and the consultant, "
+                f"the groundwater level in the project area is reported at "
+                f"{_groundwater_level or '____'} m, and the proposed mining/excavation depth is "
+                f"{_mining_depth or '____'} m."
+            )
+        else:
+            line7_groundwater = (
+                "The groundwater level and proposed mining depth details were not available "
+                "in the submitted documents."
+            )
+    except Exception as _e:
+        logger.warning(f"Groundwater vs depth calculation failed: {_e}")
+        line7_groundwater = (
+            f"As per the documents submitted, the groundwater level is reported at "
+            f"{_groundwater_level or '____'} m and the proposed mining depth is "
+            f"{_mining_depth or '____'} m."
+        )
 
     # cc_data = all_jsons.get("cc")
     # line10_cluster = (
@@ -1035,11 +1181,11 @@ def gen_delib_sheet(all_jsons: Dict[str, Any], verification_results: Dict[str, A
           4. DSR Approval page & Corresponding entry No details: {line4_dsr}.
           5. Gram Panchayat NOC & Tharav details
           6. Forest NOC details
-          7. GSDA NOC details: Using the GSDA NOC content, write a one-sentence English summary covering groundwater condition, morphozone status, and any restrictions or recommendations; base the summary on the following statement: {line7_gsda}
+          7. GSDA NOC details: Using the GSDA NOC content, write a one-sentence English summary covering groundwater condition, morphozone status, and any restrictions or recommendations; base the summary on the following statement: {line7_gsda} Additionally, include the following groundwater vs. mining depth statement exactly as written: {line7_groundwater}.
           8. Project Specific any other NOC if required
           9. DMO Site survey report remarks: {line9_dmo}
           10. DMO Certificate on cluster formation details: Based on the following statement, write 2–3 sentences covering: (a) whether the cluster certificate was submitted, (b) the Grand Total Area and whether it is less than 25 Ha, and (c) the final remarks/conclusion on cluster formation and proposal category. Statement: {line10_cluster}
-          11. Mining plan details with approval & validity information: Write a one-sentence summary mentioning approval authority, approval date, and validity status based on the following statement: {line11_mpa}
+          11. Mining plan details with approval & validity information: Write a one-sentence summary mentioning approval authority, approval date, and validity status, include  the method of mining (blasting/non-blasting) based on the following statement: {line11_mpa}
           12. Geological study report (GSR) details
           13. Hydro-geological conditions with respect to ground water levels, aquifer and recharge, slope and stability
           14. Green Belt Development details (budget and number of trees). Also mentioned number of trees planted in 7.5m boundary of proposed quarry.
@@ -1048,12 +1194,13 @@ def gen_delib_sheet(all_jsons: Dict[str, Any], verification_results: Dict[str, A
           17. CER Implementation Plan, Budget details
           18. Implementation of conditions of EC, EMP & CER Plan: {line18_proponent}
           19. EIA Coordinator and Project Consultant details: {line19_consultant}
-          20. Non-Coverage of Proposed Project Land in Western Ghat Ecological Sensitive Area: ESZ statement: Write statement like "The proposed mine village '...' is not included in the List of Villages (Maharashtra) falling under the Western Ghats Eco-Sensitive Zone (ESZ), as per 6th Draft Notification dated 31st July 2024"
+          20. Non-Coverage of Proposed Project Land in Western Ghat Ecological Sensitive Area: ESZ statement: Write statement like "The proposed mine village '...' is not included in the List of Villages (Maharashtra) falling under the Western Ghats Eco-Sensitive Zone (ESZ), as per 6th Draft Notification dated 31st July 2024".
+          21. PESA Coverage: {pesa_message}.
         
         IMPORTANT: For items 2 and 3, use the EXACT TEXT shown above. Do NOT rephrase, merge, or alter wording.
 
         FORMATTING RULES:
-        - Each numbered item (1 to 20) MUST be placed on its own line AND must begin with "<number>. ". 
+        - Each numbered item (1 to 21) MUST be placed on its own line AND must begin with "<number>. ". 
         - You MUST insert a newline before every numbered item. DO NOT place multiple items in the same line under any circumstances
         - Each numbered item MUST be a complete sentence describing what was submitted
         - Start each statement with the document/detail name followed by relevant data
